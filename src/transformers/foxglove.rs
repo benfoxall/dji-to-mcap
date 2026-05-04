@@ -191,25 +191,10 @@ impl Transformer for FoxgloveFusedTransformer {
                 }))?,
             });
 
-            // Gimbal transform: base_link → gimbal_link
-            let (gqx, gqy, gqz, gqw) = euler_to_quat(
-                frame.gimbal.roll as f64,
-                frame.gimbal.pitch as f64,
-                frame.gimbal.yaw as f64,
-            );
-            output.push(TransformedMessage {
-                topic: "/foxglove/gimbal/tf".to_string(),
-                schema_name: "foxglove.FrameTransform".to_string(),
-                schema_encoding: "jsonschema".to_string(),
-                schema_data: FRAME_TRANSFORM_SCHEMA.as_bytes().to_vec(),
-                payload: serde_json::to_vec(&json!({
-                    "timestamp": { "sec": sec, "nsec": nsec },
-                    "parent_frame_id": "base_link",
-                    "child_frame_id": "gimbal_link",
-                    "translation": { "x": 0.0, "y": 0.0, "z": 0.0 },
-                    "rotation": { "x": gqx, "y": gqy, "z": gqz, "w": gqw }
-                }))?,
-            });
+            // Gimbal links (gimbal_pitch_link, gimbal_roll_link, gimbal_link) are
+            // positioned by the URDF kinematic chain driven by /joint_states.
+            // Publishing an explicit TF here would override the URDF joints and
+            // make the camera appear locked to the airframe.
         }
 
         Ok(output)
