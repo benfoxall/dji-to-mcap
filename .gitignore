@@ -4,3 +4,9 @@ reference
 
 .env
 .DS_Store
+
+# Python virtualenv
+.venv/
+
+# Video files (large, gitignored)
+Video/

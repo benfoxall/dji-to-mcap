@@ -16,7 +16,8 @@ Convert DJI flight records to [Foxglove](https://foxglove.dev) `.mcap` files for
 | `/foxglove/map_origin` | `foxglove.LocationFix` | GPS anchor for Foxglove 3D scene (emitted once) |
 | `/foxglove/gps` | `foxglove.LocationFix` | GPS trace — use with the Map panel |
 | `/foxglove/drone/tf` | `foxglove.FrameTransform` | Drone body pose in ENU (`world` → `base_link`) |
-| `/foxglove/gimbal/tf` | `foxglove.FrameTransform` | Gimbal orientation (`base_link` → `gimbal_link`) |
+| `/joint_states` | `sensor_msgs/JointState` | Gimbal joint angles driving the URDF 3D model |
+| `/robot_description` | `std_msgs/String` | DJI Mini 4 Pro URDF for Foxglove 3D panel (emitted once) |
 
 ## Usage
 
@@ -53,6 +54,39 @@ Then run from anywhere:
 ```bash
 djicap FlightRecord_2026-01-02_\[11-04-28\].txt
 ```
+
+## Video and photo conversion
+
+DJI video (`.MP4`) and photos (`.JPG`) can be converted to a separate MCAP file
+using the bundled `video2mcap.py` script.  Timestamps are taken from the DJI
+filename (`DJI_YYYYMMDDHHMMSS_…`) so they align with the telemetry MCAP from
+the same flight.
+
+**One-time setup:**
+
+```bash
+python3 -m venv .venv
+.venv/bin/pip install av mcap-protobuf-support foxglove-schemas-protobuf
+```
+
+**Convert:**
+
+```bash
+.venv/bin/python3 video2mcap.py ./Video out_video.mcap
+```
+
+This writes:
+- `/video` — `foxglove.CompressedVideo` (H.265 packets, ~30 Hz)
+- `/image` — `foxglove.CompressedImage` (JPEG, one per photo)
+
+Open both `out.mcap` (telemetry) and `out_video.mcap` (video) in Foxglove
+Studio simultaneously — the shared timestamps let you scrub video and 3D
+visualisation in sync.
+
+> **Note:** Foxglove Studio's browser-based player has limited H.265 support on
+> some platforms. If the video panel shows a blank image, try Chrome on macOS
+> (which has native HEVC decoding) or transcode to H.264 first with FFmpeg:
+> `ffmpeg -i input.MP4 -c:v libx264 -crf 23 output.mp4`
 
 ## Getting flight logs off the drone
 
