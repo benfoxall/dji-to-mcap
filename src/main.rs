@@ -19,6 +19,17 @@ struct Cli {
     /// DJI Open API key for decrypting v13+ logs
     #[arg(long, env = "DJI_OPEN_API_KEY")]
     api_key: Option<String>,
+
+    /// Directory containing MP4/JPG files to embed alongside telemetry.
+    /// Files are matched to the flight time window automatically.
+    #[arg(long)]
+    media: Option<PathBuf>,
+
+    /// Scale video to this pixel width (height computed proportionally).
+    /// Triggers H.264 transcoding; drastically reduces MCAP size for 4K HEVC.
+    /// Example: --scale 1280
+    #[arg(long)]
+    scale: Option<u32>,
 }
 
 fn main() -> Result<()> {
@@ -31,5 +42,5 @@ fn main() -> Result<()> {
         p
     });
 
-    djicap::pipeline::process(cli.input, output, cli.api_key)
+    djicap::pipeline::process(cli.input, output, cli.api_key, cli.media, cli.scale)
 }

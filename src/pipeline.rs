@@ -27,7 +27,13 @@ struct Channel {
     sequence: u32,
 }
 
-pub fn process(input: PathBuf, output: PathBuf, api_key: Option<String>) -> Result<()> {
+pub fn process(
+    input: PathBuf,
+    output: PathBuf,
+    api_key: Option<String>,
+    media_dir: Option<PathBuf>,
+    scale_width: Option<u32>,
+) -> Result<()> {
     let bytes = fs::read(&input)
         .with_context(|| format!("Failed to read {}", input.display()))?;
 
@@ -68,13 +74,18 @@ pub fn process(input: PathBuf, output: PathBuf, api_key: Option<String>) -> Resu
     // Keyed by (topic, schema_name) to match arducap pattern
     let mut channel_map: HashMap<(String, String), Channel> = HashMap::new();
 
-    // Publish the robot URDF description on /robot_description at the first
-    // valid timestamp. Foxglove's 3D panel auto-loads it from this topic.
-    let first_ts_ns = frames
+    // Collect valid timestamps to know the flight window.
+    let timestamps_ns: Vec<u64> = frames
         .iter()
         .filter_map(|f| f.custom.date_time.timestamp_nanos_opt().map(|ns| ns as u64))
-        .find(|&ns| ns > 0);
+        .filter(|&ns| ns > 0)
+        .collect();
 
+    let first_ts_ns = timestamps_ns.iter().copied().min();
+    let last_ts_ns  = timestamps_ns.iter().copied().max();
+
+    // Publish the robot URDF description on /robot_description at the first
+    // valid timestamp. Foxglove's 3D panel auto-loads it from this topic.
     if let Some(ts) = first_ts_ns {
         let schema_id =
             writer.add_schema("std_msgs/String", "jsonschema", ROBOT_DESC_SCHEMA.as_bytes())?;
@@ -129,6 +140,26 @@ pub fn process(input: PathBuf, output: PathBuf, api_key: Option<String>) -> Resu
                 ch.sequence += 1;
             }
         }
+    }
+
+    // Write matching video and images after telemetry (same MCAP, shared timeline).
+    #[cfg(feature = "video")]
+    if let Some(ref dir) = media_dir {
+        if let (Some(start), Some(end)) = (first_ts_ns, last_ts_ns) {
+            eprintln!("Scanning {} for media matching flight window…", dir.display());
+            let files = crate::video::find_media(dir, start, end)?;
+            if files.is_empty() {
+                eprintln!("  No matching media found.");
+            } else {
+                eprintln!("  Found {} file(s):", files.len());
+                crate::video::write_media(&files, &mut writer, scale_width)?;
+            }
+        }
+    }
+
+    #[cfg(not(feature = "video"))]
+    if media_dir.is_some() {
+        eprintln!("Warning: djicap was built without the 'video' feature; --media is ignored.");
     }
 
     writer.finish()?;
