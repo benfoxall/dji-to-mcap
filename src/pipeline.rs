@@ -7,8 +7,20 @@ use std::{
 use anyhow::{Context, Result};
 use dji_log_parser::DJILog;
 use mcap::{records::MessageHeader, Writer};
+use serde_json::json;
 
-use crate::transformers::{foxglove::FoxgloveFusedTransformer, raw::RawTransformer, Transformer};
+use crate::transformers::{
+    foxglove::FoxgloveFusedTransformer,
+    joints::JointStateTransformer,
+    raw::RawTransformer,
+    Transformer,
+};
+
+// Embedded at compile time so djicap carries the URDF without extra files.
+const MINI4PRO_URDF: &str = include_str!("../mini4pro.urdf");
+
+const ROBOT_DESC_SCHEMA: &str =
+    r#"{"type":"object","properties":{"data":{"type":"string"}}}"#;
 
 struct Channel {
     channel_id: u16,
@@ -43,11 +55,7 @@ pub fn process(input: PathBuf, output: PathBuf, api_key: Option<String>) -> Resu
 
     let frames = parser.frames(keychains)?;
 
-    eprintln!(
-        "Parsed {} frames from {}",
-        frames.len(),
-        input.display()
-    );
+    eprintln!("Parsed {} frames from {}", frames.len(), input.display());
 
     if frames.is_empty() {
         anyhow::bail!("No frames decoded — the log may be encrypted. Provide a DJI API key.");
@@ -60,9 +68,29 @@ pub fn process(input: PathBuf, output: PathBuf, api_key: Option<String>) -> Resu
     // Keyed by (topic, schema_name) to match arducap pattern
     let mut channel_map: HashMap<(String, String), Channel> = HashMap::new();
 
+    // Publish the robot URDF description on /robot_description at the first
+    // valid timestamp. Foxglove's 3D panel auto-loads it from this topic.
+    let first_ts_ns = frames
+        .iter()
+        .filter_map(|f| f.custom.date_time.timestamp_nanos_opt().map(|ns| ns as u64))
+        .find(|&ns| ns > 0);
+
+    if let Some(ts) = first_ts_ns {
+        let schema_id =
+            writer.add_schema("std_msgs/String", "jsonschema", ROBOT_DESC_SCHEMA.as_bytes())?;
+        let channel_id =
+            writer.add_channel(schema_id, "/robot_description", "json", &BTreeMap::new())?;
+        let payload = serde_json::to_vec(&json!({ "data": MINI4PRO_URDF }))?;
+        writer.write_to_known_channel(
+            &MessageHeader { channel_id, sequence: 0, log_time: ts, publish_time: ts },
+            &payload,
+        )?;
+    }
+
     let mut transformers: Vec<Box<dyn Transformer>> = vec![
         Box::new(RawTransformer::new()),
         Box::new(FoxgloveFusedTransformer::new()),
+        Box::new(JointStateTransformer::new()),
     ];
 
     for frame in &frames {
@@ -78,8 +106,11 @@ pub fn process(input: PathBuf, output: PathBuf, api_key: Option<String>) -> Resu
                 let key = (msg.topic.clone(), msg.schema_name.clone());
 
                 if !channel_map.contains_key(&key) {
-                    let schema_id =
-                        writer.add_schema(&msg.schema_name, &msg.schema_encoding, &msg.schema_data)?;
+                    let schema_id = writer.add_schema(
+                        &msg.schema_name,
+                        &msg.schema_encoding,
+                        &msg.schema_data,
+                    )?;
                     let channel_id =
                         writer.add_channel(schema_id, &msg.topic, "json", &BTreeMap::new())?;
                     channel_map.insert(key.clone(), Channel { channel_id, sequence: 0 });

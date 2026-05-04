@@ -1,4 +1,5 @@
 pub mod foxglove;
+pub mod joints;
 pub mod raw;
 
 use anyhow::Result;

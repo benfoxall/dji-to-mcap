@@ -1,0 +1,191 @@
+<?xml version="1.0"?>
+<!--
+  Approximate URDF for the DJI Mini 4 Pro.
+
+  Dimensions are estimates derived from the official spec sheet:
+    Unfolded (with props): 298 × 373 × 101 mm
+    Weight: ~249 g
+    Propeller diameter: 148 mm (3-blade)
+    Gimbal pitch: -90° to +60°  |  roll: -135° to +45°  |  yaw: ±30°
+
+  Frame conventions (ROS/Foxglove ENU):
+    X = forward, Y = left, Z = up
+
+  The joint names gimbal_pitch, gimbal_roll, gimbal_yaw match the
+  sensor_msgs/JointState messages written by djicap on /joint_states.
+  The terminal link "gimbal_link" matches the child_frame_id in
+  /foxglove/gimbal/tf.
+-->
+<robot name="mini4pro">
+
+  <!-- ===== Materials ===== -->
+  <material name="body_gray">
+    <color rgba="0.15 0.15 0.15 1.0"/>
+  </material>
+  <material name="arm_gray">
+    <color rgba="0.20 0.20 0.20 1.0"/>
+  </material>
+  <material name="prop_gray">
+    <color rgba="0.35 0.35 0.35 0.85"/>
+  </material>
+  <material name="gimbal_gray">
+    <color rgba="0.25 0.25 0.25 1.0"/>
+  </material>
+  <material name="camera_white">
+    <color rgba="0.88 0.88 0.88 1.0"/>
+  </material>
+
+  <!-- ===================================================================
+       BASE LINK — drone body
+       Central body: approx 140 × 80 × 55 mm
+       Origin is at the centre of mass (geometric centre of the body).
+  ==================================================================== -->
+  <link name="base_link">
+    <visual>
+      <geometry>
+        <box size="0.140 0.080 0.055"/>
+      </geometry>
+      <material name="body_gray"/>
+    </visual>
+    <inertial>
+      <mass value="0.249"/>
+      <!-- Approximate diagonal inertia tensor for a uniform box at this mass -->
+      <inertia ixx="0.000212" ixy="0.0" ixz="0.0"
+               iyy="0.000434" iyz="0.0" izz="0.000600"/>
+    </inertial>
+  </link>
+
+  <!-- ===================================================================
+       ROTORS  (fixed — no RPM data from flight logs)
+       Motor positions (approx, from centre of body):
+         front: +113 mm in X,  rear: -113 mm in X
+         left:  +75 mm in Y,   right: -75 mm in Y
+       Propeller disc: radius 74 mm, thickness 4 mm
+       Arms: thin box connecting body edge to motor
+  ==================================================================== -->
+
+  <!-- Front-left -->
+  <link name="rotor_fl">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry><cylinder radius="0.074" length="0.004"/></geometry>
+      <material name="prop_gray"/>
+    </visual>
+  </link>
+  <joint name="rotor_fl_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="rotor_fl"/>
+    <origin xyz="0.113 0.075 0.014" rpy="0 0 0"/>
+  </joint>
+
+  <!-- Front-right -->
+  <link name="rotor_fr">
+    <visual>
+      <geometry><cylinder radius="0.074" length="0.004"/></geometry>
+      <material name="prop_gray"/>
+    </visual>
+  </link>
+  <joint name="rotor_fr_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="rotor_fr"/>
+    <origin xyz="0.113 -0.075 0.014" rpy="0 0 0"/>
+  </joint>
+
+  <!-- Rear-left -->
+  <link name="rotor_rl">
+    <visual>
+      <geometry><cylinder radius="0.074" length="0.004"/></geometry>
+      <material name="prop_gray"/>
+    </visual>
+  </link>
+  <joint name="rotor_rl_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="rotor_rl"/>
+    <origin xyz="-0.113 0.075 0.014" rpy="0 0 0"/>
+  </joint>
+
+  <!-- Rear-right -->
+  <link name="rotor_rr">
+    <visual>
+      <geometry><cylinder radius="0.074" length="0.004"/></geometry>
+      <material name="prop_gray"/>
+    </visual>
+  </link>
+  <joint name="rotor_rr_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="rotor_rr"/>
+    <origin xyz="-0.113 -0.075 0.014" rpy="0 0 0"/>
+  </joint>
+
+  <!-- ===================================================================
+       GIMBAL CHAIN
+       Physical order (outer → inner): pitch → roll → yaw
+       Mounted at the front-bottom of the drone body.
+  ==================================================================== -->
+
+  <!-- Gimbal base: fixed bracket on the drone body -->
+  <link name="gimbal_base">
+    <visual>
+      <geometry><box size="0.028 0.028 0.018"/></geometry>
+      <material name="gimbal_gray"/>
+    </visual>
+  </link>
+  <joint name="gimbal_base_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="gimbal_base"/>
+    <!-- front of body, slightly below centre -->
+    <origin xyz="0.062 0.0 -0.022" rpy="0 0 0"/>
+  </joint>
+
+  <!-- Pitch link: camera tilts up / down around Y axis
+       DJI range: -90° (straight down) to +60° (slightly up) -->
+  <link name="gimbal_pitch_link">
+    <visual>
+      <geometry><box size="0.022 0.030 0.012"/></geometry>
+      <material name="gimbal_gray"/>
+    </visual>
+  </link>
+  <joint name="gimbal_pitch" type="revolute">
+    <parent link="gimbal_base"/>
+    <child link="gimbal_pitch_link"/>
+    <origin xyz="0.0 0.0 -0.010" rpy="0 0 0"/>
+    <axis xyz="0 1 0"/>
+    <limit lower="-1.5708" upper="1.0472" effort="1.0" velocity="2.0"/>
+  </joint>
+
+  <!-- Roll link: horizon levelling / portrait mode around X axis
+       DJI range: -135° to +45° -->
+  <link name="gimbal_roll_link">
+    <visual>
+      <geometry><box size="0.018 0.024 0.024"/></geometry>
+      <material name="gimbal_gray"/>
+    </visual>
+  </link>
+  <joint name="gimbal_roll" type="revolute">
+    <parent link="gimbal_pitch_link"/>
+    <child link="gimbal_roll_link"/>
+    <origin xyz="0.004 0.0 -0.012" rpy="0 0 0"/>
+    <axis xyz="1 0 0"/>
+    <limit lower="-2.3562" upper="0.7854" effort="1.0" velocity="2.0"/>
+  </joint>
+
+  <!-- Yaw link + camera body: pans left / right around Z axis
+       DJI range: ±30°
+       "gimbal_link" matches child_frame_id in /foxglove/gimbal/tf. -->
+  <link name="gimbal_link">
+    <visual>
+      <!-- Camera body -->
+      <origin xyz="0 0 -0.013" rpy="0 0 0"/>
+      <geometry><box size="0.028 0.038 0.028"/></geometry>
+      <material name="camera_white"/>
+    </visual>
+  </link>
+  <joint name="gimbal_yaw" type="revolute">
+    <parent link="gimbal_roll_link"/>
+    <child link="gimbal_link"/>
+    <origin xyz="0.0 0.0 -0.012" rpy="0 0 0"/>
+    <axis xyz="0 0 1"/>
+    <limit lower="-0.5236" upper="0.5236" effort="1.0" velocity="2.0"/>
+  </joint>
+
+</robot>
