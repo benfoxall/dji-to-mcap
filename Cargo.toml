@@ -3,6 +3,7 @@ name = "dji-to-mcap"
 version = "0.1.0"
 edition = "2021"
 description = "Convert DJI flight logs to Foxglove MCAP files"
+repository = "https://github.com/benfoxall/dji-to-mcap"
 keywords = ["dji", "mcap", "foxglove", "drone", "telemetry"]
 categories = ["command-line-utilities", "science::robotics"]
 
@@ -33,3 +34,8 @@ tempfile = "3"
 
 [build-dependencies]
 prost-build = "0.14.3"
+
+# The profile that 'dist' will build with
+[profile.dist]
+inherits = "release"
+lto = "thin"
