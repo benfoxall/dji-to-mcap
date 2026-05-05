@@ -10,3 +10,7 @@ reference
 
 # Video files (large, gitignored)
 Video/
+
+target
+
+*.mcap
