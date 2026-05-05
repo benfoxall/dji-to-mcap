@@ -1,8 +1,8 @@
 # djicap
 
-Convert DJI flight records to [Foxglove](https://foxglove.dev) `.mcap` files for telemetry visualisation.
+Convert DJI flight records and recorded video/photos to [Foxglove](https://foxglove.dev) `.mcap` files for telemetry visualisation.
 
-> **DJI data usage:** By using this tool you agree to the [DJI Flight Record API Terms](https://developer.dji.com/policies/flight_record/).
+![Foxglove screenshot](doc/screenshot.png)
 
 ## Topics written
 
@@ -13,80 +13,77 @@ Convert DJI flight records to [Foxglove](https://foxglove.dev) `.mcap` files for
 | `/dji/battery` | `dji.Battery` | Voltage, current, charge level, cell voltages |
 | `/dji/rc` | `dji.RC` | Stick inputs, uplink/downlink signal |
 | `/dji/home` | `dji.Home` | Home point, height limit |
-| `/foxglove/map_origin` | `foxglove.LocationFix` | GPS anchor for Foxglove 3D scene (emitted once) |
+| `/foxglove/map_origin` | `foxglove.LocationFix` | GPS anchor for the 3D scene (emitted once) |
 | `/foxglove/gps` | `foxglove.LocationFix` | GPS trace — use with the Map panel |
 | `/foxglove/drone/tf` | `foxglove.FrameTransform` | Drone body pose in ENU (`world` → `base_link`) |
-| `/joint_states` | `sensor_msgs/JointState` | Gimbal joint angles driving the URDF 3D model |
-| `/robot_description` | `std_msgs/String` | DJI Mini 4 Pro URDF for Foxglove 3D panel (emitted once) |
+| `/foxglove/gimbal/tf` | `foxglove.FrameTransform` | Gimbal orientation (`base_link` → `gimbal_link`) |
+| `/foxglove/camera/tf` | `foxglove.FrameTransform` | Camera optical frame (`gimbal_link` → `camera`) |
+| `/joint_states` | `sensor_msgs/JointState` | Gimbal joint angles driving the URDF model |
+| `/robot_description` | `std_msgs/String` | DJI Mini 4 Pro URDF (emitted once) |
+| `/video` | `foxglove.CompressedVideo` | H.264/H.265 video packets (with `--media`) |
+| `/image` | `foxglove.CompressedImage` | JPEG/PNG photos (with `--media`) |
+| `/camera/camera_info` | `foxglove.CameraCalibration` | Approximate Mini 4 Pro intrinsics (with `--media`) |
 
 ## Usage
 
+```bash
+djicap <input.txt> [options]
 ```
-djicap <input.txt> [--output <out.mcap>] [--api-key <key>]
+
+| Option | Description |
+|---|---|
+| `--output <file>` | Output path (defaults to `<input>.mcap`) |
+| `--api-key <key>` | DJI Open API key for v13+ log decryption |
+| `--media <dir>` | Directory of MP4/JPG files to embed alongside telemetry |
+| `--scale <width>` | Transcode video to H.264 at this pixel width (reduces MCAP size for 4K HEVC) |
+| `--video-offset <secs>` | Shift video/image timestamps by this many seconds (positive = later) |
+
+**Example — telemetry only:**
+
+```bash
+djicap FlightRecord_2026-04-25_\[12-16-41\].txt
 ```
 
-If `--output` is omitted the `.mcap` is written next to the input file.
+**Example — with embedded video:**
 
-### DJI API key (required for v13+ logs)
-
-Recent DJI logs (version 13 and above) are AES-256 encrypted. Decryption
-requires a **DJI Open API key**:
-
-1. Visit <https://developer.dji.com/user> and log in.
-2. Click **Create App**, choose **Open API**, fill in the details.
-3. Activate the app via the confirmation email.
-4. Copy the **SDK key** from your app's detail page.
-
-Pass the key via `--api-key` or set it in your environment / a `.env` file:
-
+```bash
+djicap FlightRecord_2026-04-25_\[12-16-41\].txt --media Video/
 ```
-DJI_OPEN_API_KEY=your_key_here
+
+Media files are matched to the flight time window automatically using the MP4's `creation_time` metadata and DJI filename timestamps.
+
+### Video offset
+
+DJI sets `creation_time` when recording initialises, a couple of seconds before the first frame is captured. Use `--video-offset` to correct the alignment:
+
+```bash
+djicap FlightRecord.txt --media Video/ --video-offset 2.5
+```
+
+### H.265 / HEVC transcoding
+
+Foxglove Studio's browser player has limited H.265 support on some platforms. Use `--scale` to transcode to H.264 and also reduce file size:
+
+```bash
+djicap FlightRecord.txt --media Video/ --scale 1280
 ```
 
 ## Installation
+
+Requires a Rust toolchain and FFmpeg 7 libraries.
 
 ```bash
 cargo install --path .
 ```
 
-Then run from anywhere:
+### DJI API key (required for v13+ logs)
+
+Recent DJI logs (version 13+) are AES-256 encrypted. Get a key at <https://developer.dji.com/user> (Create App → Open API), then pass it via flag or environment variable:
 
 ```bash
-djicap FlightRecord_2026-01-02_\[11-04-28\].txt
+export DJI_OPEN_API_KEY=your_key_here
+# or use a .env file in the repo root
 ```
-
-## Video and photo conversion
-
-DJI video (`.MP4`) and photos (`.JPG`) can be converted to a separate MCAP file
-using the bundled `video2mcap.py` script.  Timestamps are taken from the DJI
-filename (`DJI_YYYYMMDDHHMMSS_…`) so they align with the telemetry MCAP from
-the same flight.
-
-**One-time setup:**
-
-```bash
-python3 -m venv .venv
-.venv/bin/pip install av mcap-protobuf-support foxglove-schemas-protobuf
-```
-
-**Convert:**
-
-```bash
-.venv/bin/python3 video2mcap.py ./Video out_video.mcap
-```
-
-This writes:
-- `/video` — `foxglove.CompressedVideo` (H.265 packets, ~30 Hz)
-- `/image` — `foxglove.CompressedImage` (JPEG, one per photo)
-
-Open both `out.mcap` (telemetry) and `out_video.mcap` (video) in Foxglove
-Studio simultaneously — the shared timestamps let you scrub video and 3D
-visualisation in sync.
-
-> **Note:** Foxglove Studio's browser-based player has limited H.265 support on
-> some platforms. If the video panel shows a blank image, try Chrome on macOS
-> (which has native HEVC decoding) or transcode to H.264 first with FFmpeg:
-> `ffmpeg -i input.MP4 -c:v libx264 -crf 23 output.mp4`
 
 ## Getting flight logs off the drone
 
@@ -101,7 +98,6 @@ cargo build
 cargo test                        # unit tests (coordinate math)
 cargo test -- --include-ignored   # also runs the integration test (needs FlightRecord/)
 
-# Inspect the output
 mcap info output.mcap
 mcap inspect output.mcap
 ```
