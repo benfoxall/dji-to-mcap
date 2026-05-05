@@ -154,7 +154,7 @@ pub fn process(
 
     #[cfg(not(feature = "video"))]
     if media_dir.is_some() {
-        eprintln!("Warning: djicap was built without the 'video' feature; --media is ignored.");
+        eprintln!("Warning: dji-to-mcap was built without the 'video' feature; --media is ignored.");
     }
 
     writer.finish()?;

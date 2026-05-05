@@ -1,4 +1,4 @@
-# djicap — Claude session guide
+# dji-to-mcap — Claude session guide
 
 ## What this is
 
@@ -11,10 +11,10 @@ A Rust CLI that converts DJI flight logs (`.txt`) to Foxglove `.mcap` files. Opt
 cargo build
 
 # Run against real data (flight logs and video are gitignored)
-djicap FlightRecord/FlightRecord_2026-04-25_\[12-16-41\].txt --media Video/
+dji-to-mcap FlightRecord/FlightRecord_2026-04-25_\[12-16-41\].txt --media Video/
 
 # With transcoding to reduce file size
-djicap FlightRecord/... --media Video/ --scale 1280
+dji-to-mcap FlightRecord/... --media Video/ --scale 1280
 
 # Install as system binary
 cargo install --path .
@@ -35,8 +35,7 @@ src/
     foxglove.rs    Fused Foxglove topics (GPS, FrameTransform)
     joints.rs      JointState for gimbal URDF animation
   video.rs         --media: find/match MP4+JPG, Annex-B BSF, protobuf encode
-  schema_compressed_video.bin   } Binary FileDescriptorSet blobs embedded
-  schema_compressed_image.bin   } via include_bytes! for protobuf schemas
+  schemas.rs       All JSON schema constants for every topic
 mini4pro.urdf      Embedded at compile time for /robot_description topic
 ```
 
@@ -46,7 +45,7 @@ mini4pro.urdf      Embedded at compile time for /robot_description topic
 
 **Annex-B BSF:** DJI HEVC video is HVCC (length-prefixed NAL units, SPS/PPS in extradata). Foxglove needs Annex-B (start-code NAL units with inline SPS/PPS). The `hevc_mp4toannexb` / `h264_mp4toannexb` FFmpeg BSF handles this. `av_bsf_*` functions are not in `ffmpeg-sys-next`'s bindings so they're declared via `extern "C"` with a manually defined `AVBSFContext` struct matching the FFmpeg 7 layout (no `internal` field between `filter` and `priv_data`).
 
-**Protobuf without prost:** `foxglove.CompressedVideo` and `foxglove.CompressedImage` are encoded manually with varint helpers. The schema data (FileDescriptorSet) is pre-extracted from the `foxglove-schemas-protobuf` Python package.
+**Protobuf via prost:** `foxglove.CompressedVideo` and `foxglove.CompressedImage` are encoded using prost-generated types. The schema data (FileDescriptorSet) is generated at build time by `build.rs` from `.proto` files in `proto/`.
 
 **`--scale` flag:** Triggers a full decode → libswscale resize → libx264 encode pipeline instead of passthrough demux+BSF.
 

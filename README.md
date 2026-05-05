@@ -1,4 +1,4 @@
-# djicap
+# dji-to-mcap
 
 Convert DJI flight records and recorded video/photos to [Foxglove](https://foxglove.dev) `.mcap` files for telemetry visualisation.
 
@@ -27,7 +27,7 @@ Convert DJI flight records and recorded video/photos to [Foxglove](https://foxgl
 ## Usage
 
 ```bash
-djicap <input.txt> [options]
+dji-to-mcap <input.txt> [options]
 ```
 
 | Option | Description |
@@ -41,13 +41,13 @@ djicap <input.txt> [options]
 **Example — telemetry only:**
 
 ```bash
-djicap FlightRecord_2026-04-25_\[12-16-41\].txt
+dji-to-mcap FlightRecord_2026-04-25_\[12-16-41\].txt
 ```
 
 **Example — with embedded video:**
 
 ```bash
-djicap FlightRecord_2026-04-25_\[12-16-41\].txt --media Video/
+dji-to-mcap FlightRecord_2026-04-25_\[12-16-41\].txt --media Video/
 ```
 
 Media files are matched to the flight time window automatically using the MP4's `creation_time` metadata and DJI filename timestamps.
@@ -57,7 +57,7 @@ Media files are matched to the flight time window automatically using the MP4's 
 DJI sets `creation_time` when recording initialises, a couple of seconds before the first frame is captured. Use `--video-offset` to correct the alignment:
 
 ```bash
-djicap FlightRecord.txt --media Video/ --video-offset 2.5
+dji-to-mcap FlightRecord.txt --media Video/ --video-offset 2.5
 ```
 
 ### H.265 / HEVC transcoding
@@ -65,7 +65,7 @@ djicap FlightRecord.txt --media Video/ --video-offset 2.5
 Foxglove Studio's browser player has limited H.265 support on some platforms. Use `--scale` to transcode to H.264 and also reduce file size:
 
 ```bash
-djicap FlightRecord.txt --media Video/ --scale 1280
+dji-to-mcap FlightRecord.txt --media Video/ --scale 1280
 ```
 
 ## Installation

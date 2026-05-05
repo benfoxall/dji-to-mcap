@@ -4,7 +4,7 @@ use std::path::PathBuf;
 
 #[derive(Parser)]
 #[command(
-    name = "djicap",
+    name = "dji-to-mcap",
     about = "Convert DJI flight logs to Foxglove MCAP files",
     long_about = "Parses DJI flight records (.txt) and writes a .mcap file viewable in Foxglove Studio.\n\nSee https://developer.dji.com/policies/flight_record/ for DJI data usage terms."
 )]
@@ -48,5 +48,5 @@ fn main() -> Result<()> {
         p
     });
 
-    djicap::pipeline::process(cli.input, output, cli.api_key, cli.media, cli.scale, cli.video_offset)
+    dji_to_mcap::pipeline::process(cli.input, output, cli.api_key, cli.media, cli.scale, cli.video_offset)
 }

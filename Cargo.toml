@@ -1,5 +1,5 @@
 [package]
-name = "djicap"
+name = "dji-to-mcap"
 version = "0.1.0"
 edition = "2021"
 description = "Convert DJI flight logs to Foxglove MCAP files"
@@ -7,7 +7,7 @@ keywords = ["dji", "mcap", "foxglove", "drone", "telemetry"]
 categories = ["command-line-utilities", "science::robotics"]
 
 [[bin]]
-name = "djicap"
+name = "dji-to-mcap"
 path = "src/main.rs"
 
 [dependencies]

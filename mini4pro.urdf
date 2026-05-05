@@ -12,7 +12,7 @@
     X = forward, Y = left, Z = up
 
   The joint names gimbal_pitch, gimbal_roll, gimbal_yaw match the
-  sensor_msgs/JointState messages written by djicap on /joint_states.
+  sensor_msgs/JointState messages written by dji-to-mcap on /joint_states.
   The terminal link "gimbal_link" matches the child_frame_id in
   /foxglove/gimbal/tf.
 -->

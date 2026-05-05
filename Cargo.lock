@@ -454,7 +454,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "djicap"
+name = "dji-to-mcap"
 version = "0.1.0"
 dependencies = [
  "anyhow",
