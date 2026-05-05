@@ -21,7 +21,7 @@ fn pipeline_produces_nonempty_mcap() {
 
     let api_key = std::env::var("DJI_OPEN_API_KEY").ok();
 
-    djicap::pipeline::process(log_path.to_path_buf(), out_path.clone(), api_key)
+    djicap::pipeline::process(log_path.to_path_buf(), out_path.clone(), api_key, None, None, 0.0)
         .expect("pipeline should succeed");
 
     let metadata = std::fs::metadata(&out_path).unwrap();

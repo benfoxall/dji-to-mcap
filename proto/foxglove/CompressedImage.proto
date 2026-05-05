@@ -1,0 +1,12 @@
+syntax = "proto3";
+
+package foxglove;
+
+import "google/protobuf/timestamp.proto";
+
+message CompressedImage {
+  google.protobuf.Timestamp timestamp = 1;
+  string frame_id = 2;
+  bytes data = 3;
+  string format = 4;
+}

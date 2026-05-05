@@ -30,6 +30,12 @@ struct Cli {
     /// Example: --scale 1280
     #[arg(long)]
     scale: Option<u32>,
+
+    /// Shift all video/image timestamps by this many seconds (positive = later).
+    /// DJI sets creation_time before the first frame is captured; use a positive
+    /// value (typically 2–3) to align video with telemetry.
+    #[arg(long, default_value = "0")]
+    video_offset: f64,
 }
 
 fn main() -> Result<()> {
@@ -42,5 +48,5 @@ fn main() -> Result<()> {
         p
     });
 
-    djicap::pipeline::process(cli.input, output, cli.api_key, cli.media, cli.scale)
+    djicap::pipeline::process(cli.input, output, cli.api_key, cli.media, cli.scale, cli.video_offset)
 }

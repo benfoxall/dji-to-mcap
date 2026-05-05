@@ -9,6 +9,7 @@ use dji_log_parser::DJILog;
 use mcap::{records::MessageHeader, Writer};
 use serde_json::json;
 
+use crate::schemas::ROBOT_DESCRIPTION_SCHEMA;
 use crate::transformers::{
     foxglove::FoxgloveFusedTransformer,
     joints::JointStateTransformer,
@@ -16,15 +17,25 @@ use crate::transformers::{
     Transformer,
 };
 
-// Embedded at compile time so djicap carries the URDF without extra files.
 const MINI4PRO_URDF: &str = include_str!("../mini4pro.urdf");
-
-const ROBOT_DESC_SCHEMA: &str =
-    r#"{"type":"object","properties":{"data":{"type":"string"}}}"#;
 
 struct Channel {
     channel_id: u16,
     sequence: u32,
+}
+
+fn write_robot_description<W: std::io::Write + std::io::Seek>(
+    writer: &mut Writer<W>,
+    timestamp_ns: u64,
+) -> Result<()> {
+    let schema_id = writer.add_schema("std_msgs/String", "jsonschema", ROBOT_DESCRIPTION_SCHEMA.as_bytes())?;
+    let channel_id = writer.add_channel(schema_id, "/robot_description", "json", &BTreeMap::new())?;
+    let payload = serde_json::to_vec(&json!({ "data": MINI4PRO_URDF }))?;
+    writer.write_to_known_channel(
+        &MessageHeader { channel_id, sequence: 0, log_time: timestamp_ns, publish_time: timestamp_ns },
+        &payload,
+    )?;
+    Ok(())
 }
 
 pub fn process(
@@ -33,12 +44,13 @@ pub fn process(
     api_key: Option<String>,
     media_dir: Option<PathBuf>,
     scale_width: Option<u32>,
+    video_offset_secs: f64,
 ) -> Result<()> {
     let bytes = fs::read(&input)
         .with_context(|| format!("Failed to read {}", input.display()))?;
 
-    let parser =
-        DJILog::from_bytes(bytes).with_context(|| "Failed to parse DJI log header")?;
+    let parser = DJILog::from_bytes(bytes)
+        .with_context(|| "Failed to parse DJI log header")?;
 
     eprintln!("Log version: {}", parser.version);
 
@@ -52,29 +64,25 @@ pub fn process(
 
     let keychains = match api_key {
         Some(ref key) => Some(
-            parser
-                .fetch_keychains(key)
+            parser.fetch_keychains(key)
                 .with_context(|| "Failed to fetch DJI keychains — check your API key")?,
         ),
         None => None,
     };
 
     let frames = parser.frames(keychains)?;
-
     eprintln!("Parsed {} frames from {}", frames.len(), input.display());
 
     if frames.is_empty() {
         anyhow::bail!("No frames decoded — the log may be encrypted. Provide a DJI API key.");
     }
 
-    let out_file =
-        fs::File::create(&output).with_context(|| format!("Cannot create {}", output.display()))?;
+    let out_file = fs::File::create(&output)
+        .with_context(|| format!("Cannot create {}", output.display()))?;
     let mut writer = Writer::new(out_file)?;
 
-    // Keyed by (topic, schema_name) to match arducap pattern
     let mut channel_map: HashMap<(String, String), Channel> = HashMap::new();
 
-    // Collect valid timestamps to know the flight window.
     let timestamps_ns: Vec<u64> = frames
         .iter()
         .filter_map(|f| f.custom.date_time.timestamp_nanos_opt().map(|ns| ns as u64))
@@ -84,18 +92,8 @@ pub fn process(
     let first_ts_ns = timestamps_ns.iter().copied().min();
     let last_ts_ns  = timestamps_ns.iter().copied().max();
 
-    // Publish the robot URDF description on /robot_description at the first
-    // valid timestamp. Foxglove's 3D panel auto-loads it from this topic.
     if let Some(ts) = first_ts_ns {
-        let schema_id =
-            writer.add_schema("std_msgs/String", "jsonschema", ROBOT_DESC_SCHEMA.as_bytes())?;
-        let channel_id =
-            writer.add_channel(schema_id, "/robot_description", "json", &BTreeMap::new())?;
-        let payload = serde_json::to_vec(&json!({ "data": MINI4PRO_URDF }))?;
-        writer.write_to_known_channel(
-            &MessageHeader { channel_id, sequence: 0, log_time: ts, publish_time: ts },
-            &payload,
-        )?;
+        write_robot_description(&mut writer, ts)?;
     }
 
     let mut transformers: Vec<Box<dyn Transformer>> = vec![
@@ -111,19 +109,16 @@ pub fn process(
         };
 
         for transformer in &mut transformers {
-            let messages = transformer.transform(frame, ts_ns)?;
-
-            for msg in messages {
+            for msg in transformer.transform(frame, ts_ns)? {
                 let key = (msg.topic.clone(), msg.schema_name.clone());
 
                 if !channel_map.contains_key(&key) {
                     let schema_id = writer.add_schema(
-                        &msg.schema_name,
-                        &msg.schema_encoding,
-                        &msg.schema_data,
+                        &msg.schema_name, &msg.schema_encoding, &msg.schema_data,
                     )?;
-                    let channel_id =
-                        writer.add_channel(schema_id, &msg.topic, "json", &BTreeMap::new())?;
+                    let channel_id = writer.add_channel(
+                        schema_id, &msg.topic, "json", &BTreeMap::new(),
+                    )?;
                     channel_map.insert(key.clone(), Channel { channel_id, sequence: 0 });
                 }
 
@@ -142,7 +137,6 @@ pub fn process(
         }
     }
 
-    // Write matching video and images after telemetry (same MCAP, shared timeline).
     #[cfg(feature = "video")]
     if let Some(ref dir) = media_dir {
         if let (Some(start), Some(end)) = (first_ts_ns, last_ts_ns) {
@@ -152,7 +146,8 @@ pub fn process(
                 eprintln!("  No matching media found.");
             } else {
                 eprintln!("  Found {} file(s):", files.len());
-                crate::video::write_media(&files, &mut writer, scale_width)?;
+                let video_offset_ns = (video_offset_secs * 1_000_000_000.0) as i64;
+                crate::video::write_media(&files, &mut writer, scale_width, video_offset_ns)?;
             }
         }
     }
