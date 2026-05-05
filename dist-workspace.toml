@@ -10,4 +10,17 @@ ci = "github"
 # The installers to generate for each app
 installers = []
 # Target platforms to build apps for (Rust target-triple syntax)
-targets = ["aarch64-apple-darwin", "aarch64-unknown-linux-gnu", "x86_64-apple-darwin", "x86_64-unknown-linux-gnu", "x86_64-pc-windows-msvc"]
+# Linux ARM and Windows are excluded: FFmpeg system libraries are not available
+# for cross-compilation (ARM) or are too complex to install in CI (Windows).
+targets = ["aarch64-apple-darwin", "x86_64-apple-darwin", "x86_64-unknown-linux-gnu"]
+
+# FFmpeg system libraries required to build the `video` feature (default)
+[dist.dependencies.apt]
+libavcodec-dev = "*"
+libavformat-dev = "*"
+libavutil-dev = "*"
+libswscale-dev = "*"
+libavdevice-dev = "*"
+
+[dist.dependencies.homebrew]
+ffmpeg = "*"
