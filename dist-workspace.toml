@@ -10,19 +10,17 @@ ci = "github"
 # The installers to generate for each app
 installers = []
 # Target platforms to build apps for (Rust target-triple syntax)
-# Linux ARM and Windows are excluded: FFmpeg system libraries are not available
-# for cross-compilation (ARM) or are too complex to install in CI (Windows).
+# Linux ARM and Windows are excluded: the ffmpeg-sys-next static build is not
+# supported for cross-compilation (ARM) and Windows MSVC is too complex in CI.
 targets = ["aarch64-apple-darwin", "x86_64-apple-darwin", "x86_64-unknown-linux-gnu"]
 
-# FFmpeg system libraries required to build the `video` feature (default)
+# Build tools required by ffmpeg-sys-next's `build` feature (compiles FFmpeg 7 from source)
 [dist.dependencies.apt]
-libavcodec-dev = "*"
-libavformat-dev = "*"
-libavutil-dev = "*"
-libswscale-dev = "*"
-libavdevice-dev = "*"
+libclang-dev = "*"
+nasm = "*"
+pkg-config = "*"
 protobuf-compiler = "*"
 
 [dist.dependencies.homebrew]
-ffmpeg = "*"
+nasm = "*"
 protobuf = "*"
