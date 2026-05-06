@@ -1,6 +1,6 @@
 [package]
 name = "dji-to-mcap"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 description = "Convert DJI flight logs to Foxglove MCAP files"
 repository = "https://github.com/benfoxall/dji-to-mcap"
