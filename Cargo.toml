@@ -35,6 +35,16 @@ tempfile = "3"
 [build-dependencies]
 prost-build = "0.14.3"
 
+[package.metadata.dist.dependencies.homebrew]
+ffmpeg = '*'
+
+[package.metadata.dist.dependencies.apt]
+libavcodec-dev = '*'
+libavformat-dev = '*'
+libavutil-dev = '*'
+libswscale-dev = '*'
+libavdevice-dev = '*'
+
 # The profile that 'dist' will build with
 [profile.dist]
 inherits = "release"
