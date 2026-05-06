@@ -21,6 +21,8 @@ libavformat-dev = "*"
 libavutil-dev = "*"
 libswscale-dev = "*"
 libavdevice-dev = "*"
+protobuf-compiler = "*"
 
 [dist.dependencies.homebrew]
 ffmpeg = "*"
+protobuf = "*"
