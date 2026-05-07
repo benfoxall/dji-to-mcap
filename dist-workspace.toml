@@ -9,6 +9,8 @@ cargo-dist-version = "0.31.0"
 ci = "github"
 # The installers to generate for each app
 installers = []
+# Run the full artifact build on PRs so we can verify the build without tagging
+pr-run-mode = "upload"
 # Target platforms to build apps for (Rust target-triple syntax)
 # Linux ARM and Windows are excluded: the ffmpeg-sys-next static build is not
 # supported for cross-compilation (ARM) and Windows MSVC is too complex in CI.
